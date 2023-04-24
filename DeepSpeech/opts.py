@@ -15,12 +15,18 @@ def add_decoder_args(parser):
     beam_args.add_argument('--lm-workers', default=1, type=int, help='Number of LM processes to use')
     return parser
 
+Notebook='Notebook'
+print('MMM', 'able to read parser of test_attr.py')
+if Notebook=='Notebook':
+	main_path='/home/mmm2050/QU_DFKI_Thesis/Experimentation/ASR_Accent_Analysis_De'
+elif Notebook=='colab':
+	main_path='/content/ASR_Accent_Analysis_De'
 
 def add_inference_args(parser):
     parser.add_argument('--cuda', action="store_true", help='Use cuda')
     parser.add_argument('--half', action="store_true",
                         help='Use half precision. This is recommended when using mixed-precision at training time')
     parser.add_argument('--decoder', default="greedy", choices=["greedy", "beam"], type=str, help="Decoder to use")
-    parser.add_argument('--model-path', default='models/deepspeech_final.pth',
+    parser.add_argument('--model_path', default=main_path+'/models/deepspeech_final.pth',
                         help='Path to model file created by training')
     return parser

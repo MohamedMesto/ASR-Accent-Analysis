@@ -6,18 +6,35 @@ from tqdm import tqdm
 import json
 import time
 from data.data_loader import SpectrogramDataset, AudioDataLoader
-from decoder import GreedyDecoder
+# from decoder import GreedyDecoder      ##### replacement down imported >>> from ctcdecode import CTCBeamDecoder 
+
+from ctcdecode import CTCBeamDecoder
 from opts import add_decoder_args, add_inference_args
 from utils import load_model
 import gc
+import os
+from testing import evaluate_2
+
+
+main_path='/home/mmm2050/QU_DFKI_Thesis/Experimentation/ASR_Accent_Analysis_De'
+
+
+
+
 parser = argparse.ArgumentParser(description='DeepSpeech transcription')
 parser = add_inference_args(parser)
 parser.add_argument('--test-manifest', metavar='DIR',
-					help='path to validation manifest csv', default='data/test_manifest.csv')
+					help='path to validation manifest csv', default=main_path+'/DeepSpeech/data/test_manifest.csv')
+
+# parser.add_argument('--model_path', metavar='DIR',
+# 					help='path to the Deepspeech Acoustic model', default=main_path+'/DeepSpeech/models/deepspeech_final.pth')
+parser.add_argument('--lm_path', metavar='DIR',
+					help='path to the Deepspeech Linguistic model', default=main_path+'/DeepSpeech/models/4-gram.arpa')
 parser.add_argument('--batch-size', default=5, type=int, help='Batch size for training')
 parser.add_argument('--num-workers', default=4, type=int, help='Number of workers used in dataloading')
 parser.add_argument('--verbose', action="store_true", help="print out decoded output and error of each sample")
 parser.add_argument('--save-output', default=None, help="Saves output of model from test to this file_path")
+
 parser = add_decoder_args(parser)
 
 def contrib(layer_op,grad, layer_index, inp):
@@ -98,7 +115,12 @@ def evaluate(test_loader, device, model, decoder, target_decoder,accent, save_ou
 					if(torch.sum(c) == 0):
 						denom = 1e-09
 					contr = c/denom
-					np.save('../data/Contribution/timit_blank/{}/{}_{}_{}'.format(layer_names[l],filenames[i], str(j),layer_names[l]), contr.cpu().numpy())
+					if not os.path.exists(main_path+'/DeepSpeech/data/Contribution_De/timit_blank/{}'.format(layer_names[l])):
+								os.makedirs(main_path+'/DeepSpeech/data/Contribution_De/timit_blank/{}'.format(layer_names[l]))
+
+
+					np.save(main_path+'/DeepSpeech/data/Contribution_De/timit_blank/{}/{}_{}_{}'.format(layer_names[l],
+										       filenames[i], str(j),layer_names[l]), contr.cpu().numpy())
 					
 					del c
 					del contr
@@ -115,12 +137,34 @@ def evaluate(test_loader, device, model, decoder, target_decoder,accent, save_ou
 			gc.collect()
 			torch.cuda.empty_cache()
 			
+		############################################
+		### MMM2050 created and imported from testing.py
+		### no used of wer, cer at the file 
+		wer, cer= evaluate_2(args.cuda, args.model_path,
+		decoder,args.test_manifest,args.batch_size)
+
+		print('Test Summary \t'
+		'Average WER {wer:.3f}\t'
+		'Average CER {cer:.3f}\t'.format(wer=wer, cer=cer))
+
+		if args.save_output is not None:
+			np.save(args.save_output,wer, cer)
+		### MMM2050 End
+		### Notic ###
+		'''
+		#################################################################################
+		The wer, cer are not dumped to the pickle files at the source code!!!############
+		#################################################################################
+		'''
+
+
+
 		if save_output:
 			# add output to data array, and continue
 			output_data.append((out.cpu().numpy(), output_sizes.numpy()))
-
-
-	return
+	# MMM
+	# return
+	return output_data
 
 if __name__ == '__main__':
 	args = parser.parse_args()
@@ -130,33 +174,55 @@ if __name__ == '__main__':
 
 	model = load_model(device, args.model_path, args.half)
 
-	if args.decoder == "beam":
-		from decoder import BeamCTCDecoder
 
-		decoder = BeamCTCDecoder(model.labels, lm_path=args.lm_path, alpha=args.alpha, beta=args.beta,
-								 cutoff_top_n=args.cutoff_top_n, cutoff_prob=args.cutoff_prob,
-								 beam_width=args.beam_width, num_processes=args.lm_workers)
-	elif args.decoder == "greedy":
-		decoder = GreedyDecoder(model.labels, blank_index=model.labels.index('_'))
-	else:
-		decoder = None
-	target_decoder = GreedyDecoder(model.labels, blank_index=model.labels.index('_'))
+	from ctcdecode import CTCBeamDecoder
+
+	decoder = CTCBeamDecoder(model.labels, model_path=args.lm_path, alpha=args.alpha, beta=args.beta,
+							cutoff_top_n=args.cutoff_top_n, cutoff_prob=args.cutoff_prob,
+							beam_width=args.beam_width, num_processes=args.lm_workers)
+	
+ 
+	#### 
+	# if args.decoder == "beam":
+	# 	from decoder import BeamCTCDecoder
+
+	# 	decoder = BeamCTCDecoder(model.labels, lm_path=args.lm_path, alpha=args.alpha, beta=args.beta,
+	# 							 cutoff_top_n=args.cutoff_top_n, cutoff_prob=args.cutoff_prob,
+	# 							 beam_width=args.beam_width, num_processes=args.lm_workers)
+		
+	# elif args.decoder == "greedy":
+	# 	decoder = GreedyDecoder(model.labels, blank_index=model.labels.index('_'))
+	# else:
+	# 	decoder = None
+	# target_decoder = GreedyDecoder(model.labels, blank_index=model.labels.index('_'))
+
 	test_dataset = SpectrogramDataset(audio_conf=model.audio_conf, manifest_filepath=args.test_manifest,
 									  labels=model.labels, normalize=True)
 	test_loader = AudioDataLoader(test_dataset, batch_size=args.batch_size,
-								  num_workers=args.num_workers)
-	wer, cer, output_data = evaluate(test_loader=test_loader,
+								  num_workers=args.num_workers) # , shuffle= False)
+	output_data = evaluate(test_loader=test_loader,
 									 device=device,
 									 model=model,
 									 decoder=decoder,
-									 target_decoder=target_decoder,
+									 target_decoder=decoder,
 									accent = accent,
 									 save_output=args.save_output,
 									 verbose=args.verbose,
 									 half=args.half)
-
-	print('Test Summary \t'
-		  'Average WER {wer:.3f}\t'
-		  'Average CER {cer:.3f}\t'.format(wer=wer, cer=cer))
+	### MMM 
+	# wer, cer, output_data = evaluate(test_loader=test_loader,
+	# 								 device=device,
+	# 								 model=model,
+	# 								 decoder=decoder,
+	# 								 target_decoder=decoder,
+	# 								accent = accent,
+	# 								 save_output=args.save_output,
+	# 								 verbose=args.verbose,
+	# 								 half=args.half)
+	# ### MMM
+	# print('Test Summary \t'
+	# 	  'Average WER {wer:.3f}\t'
+	# 	  'Average CER {cer:.3f}\t'.format(wer=wer, cer=cer))
+	
 	if args.save_output is not None:
 		np.save(args.save_output, output_data)
