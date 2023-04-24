@@ -2,11 +2,9 @@
 import os
 import subprocess
 from tempfile import NamedTemporaryFile
-
 from torch.distributed import get_rank
 from torch.distributed import get_world_size
 from torch.utils.data.sampler import Sampler
-
 import librosa
 import numpy as np
 import scipy.signal
@@ -15,7 +13,13 @@ from scipy.io.wavfile import read
 import math
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
-from .spec_augment import spec_augment
+print('MMM', 'able to read data_loader.py')
+from data.deepspeechpytorch.deepspeech_pytorch.loader.spec_augment import spec_augment
+
+# print('No god but ALLAH')
+
+
+
 
 windows = {'hamming': scipy.signal.hamming, 'hann': scipy.signal.hann, 'blackman': scipy.signal.blackman,
            'bartlett': scipy.signal.bartlett}
@@ -140,6 +144,7 @@ class SpectrogramParser(AudioParser):
 
 class SpectrogramDataset(Dataset, SpectrogramParser):
     def __init__(self, audio_conf, manifest_filepath, labels, normalize=False, speed_volume_perturb=False, spec_augment=False):
+        print("just")
         """
         Dataset that loads tensors via a csv containing file paths to audio files and transcripts separated by
         a comma. Each new line is a different sample. Example below:

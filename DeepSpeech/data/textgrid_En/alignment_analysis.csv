@@ -1,0 +1,4 @@
+file,begin,end,speaker,overall_log_likelihood,speech_log_likelihood,phone_duration_deviation
+common_voice_en_195627,0.0,3.888,speech_datasets_En,-3.5824329896907217,-45.560503125,0.8401466671808299
+common_voice_en_19574,0.0,2.952,speech_datasets_En,-4.387291525423729,-51.226589,0.7003120450134099
+common_voice_en_533247,0.0,3.84,speech_datasets_En,-4.1886328125,-48.586527296296296,0.7194975412660747
